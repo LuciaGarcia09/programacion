@@ -7,6 +7,7 @@ import streamlit as st
 from ui import ejercicios, paginas
 from ui.estilo import aplicar_estilo
 from ui.herramientas import NAV
+from ui.teoria import guardar_en_navegador, leer_del_navegador
 
 st.set_page_config(page_title="ProgLucía", page_icon="🌸", layout="wide")
 aplicar_estilo()
@@ -62,4 +63,8 @@ pagina = st.navigation(paginas_nav, expanded=True)
 with st.sidebar:
     st.caption("Cada solución está comprobada: los programas se ejecutan de verdad (simulador MIPS, gcc y Python) y "
                "las cuentas con simuladores de caché, pipeline y memoria. ¡Mucho ánimo, Lucía! 💗")
+with st.sidebar:
+    leer_del_navegador()          # antes de dibujar nada: recupera lo que hiciste en otras sesiones
 pagina.run()
+with st.sidebar:
+    guardar_en_navegador()

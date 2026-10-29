@@ -216,6 +216,25 @@ def pagina_progreso():
                 n = sum(1 for e in h.ejercicios if p.get(f"ej/{e.id}"))
                 st.progress(n / len(h.ejercicios), text=f"{h.icono} {h.titulo}: {n}/{len(h.ejercicios)}")
     st.divider()
+    st.markdown("### 💾 Tu progreso se guarda solo")
+    st.caption("Se queda guardado en **este navegador**: aunque cierres la app o la actualice, al volver sigue ahí. "
+               "Para llevártelo a otro ordenador o al móvil, descarga la copia y súbela allí.")
+    import json as _json
+    from ui.teoria import fusionar
+    c1, c2 = st.columns(2)
+    c1.download_button("⬇️ Descargar copia de mi progreso", _json.dumps(p, ensure_ascii=False, indent=1),
+                       file_name="progreso_proglucia.json", mime="application/json", key="desc_prog", width="stretch")
+    with c2:
+        subido = st.file_uploader("⬆️ Subir una copia", type=["json"], key="subir_prog", label_visibility="collapsed")
+        if subido is not None and st.session_state.get("_subido_id") != subido.file_id:
+            st.session_state["_subido_id"] = subido.file_id
+            try:
+                n = fusionar(_json.loads(subido.getvalue().decode("utf-8")))
+                st.success(f"💗 ¡Listo! He recuperado {n} marcas nuevas.")
+                st.rerun()
+            except (ValueError, AttributeError):
+                st.error("Ese archivo no es una copia de progreso de ProgLucía.")
+    st.divider()
     if st.button("🗑️ Borrar todo mi progreso", key="borrar_prog"):
         st.session_state["confirmar_borrar"] = True
     if st.session_state.get("confirmar_borrar"):

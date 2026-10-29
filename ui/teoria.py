@@ -58,6 +58,75 @@ def _guardar():
         pass  # (si no se puede escribir, el progreso dura lo que dure la sesión)
 
 
+# El servidor de Streamlit Cloud se reinicia (y borra progreso.json) cada vez que se actualiza la app,
+# así que el progreso se guarda también en el navegador (localStorage), que sí dura entre sesiones.
+_JS_ALMACEN = """
+export default function(component) {
+    const { data, setStateValue } = component;
+    const CLAVE = "proglucia_progreso";
+    let guardado = "{}";
+    try { guardado = window.localStorage.getItem(CLAVE) || "{}"; } catch (e) {}
+    if (data && data.modo === "leer") {
+        setStateValue("guardado", guardado);
+    } else if (data && data.modo === "escribir" && data.progreso && data.progreso !== guardado) {
+        try { window.localStorage.setItem(CLAVE, data.progreso); } catch (e) {}
+    }
+}
+"""
+_almacen = []
+
+
+def fusionar(guardado: dict) -> int:
+    """Añade al progreso lo marcado en otra sesión (nunca desmarca nada). Devuelve cuántas marcas nuevas.
+    Debe llamarse ANTES de dibujar los interruptores (al principio de la página)."""
+    p = _cargar()
+    nuevas = 0
+    for k, v in (guardado or {}).items():
+        if v and not p.get(k):
+            p[k] = v
+            nuevas += 1
+    if nuevas:
+        _guardar()
+    for k, v in p.items():                # los interruptores muestran lo recuperado
+        st.session_state["tg_ej_" + k[3:] if k.startswith("ej/") else "tg_" + k] = bool(v)
+    return nuevas
+
+
+def _componente():
+    import streamlit.components.v2 as v2
+    if not _almacen:
+        _almacen.append(v2.component("proglucia_almacen", js=_JS_ALMACEN))
+    return _almacen[0]
+
+
+def leer_del_navegador():
+    """Al principio de cada carga: recupera (una vez por sesión) el progreso guardado en este navegador."""
+    if st.session_state.get("_almacen_listo"):
+        return
+    try:
+        res = _componente()(key="almacen_leer", data={"modo": "leer"}, on_guardado_change=lambda: None)
+        valor = getattr(res, "guardado", None)
+    except Exception:  # noqa: BLE001  (sin navegador: tests)
+        return
+    if valor is not None:
+        try:
+            fusionar(json.loads(valor))
+        except (ValueError, AttributeError):
+            pass
+        st.session_state["_almacen_listo"] = True
+
+
+def guardar_en_navegador():
+    """Al final de cada carga: copia el progreso al navegador (cuando ya se ha leído lo anterior)."""
+    if not st.session_state.get("_almacen_listo"):
+        return
+    try:
+        _componente()(key="almacen_escribir", data={"modo": "escribir",
+                                                    "progreso": json.dumps(_cargar(), sort_keys=True)})
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def progreso_tema(tema: Tema) -> float:
     p = _cargar()
     if not tema.secciones:
@@ -142,10 +211,10 @@ def mostrar_tema(tema: Tema, herramientas: list[str] | None = None):
             st.rerun()
     with c2:
         k = f"{tema.id}/{sec.id}"
-        nuevo = st.toggle("💗 Esta sección ya la entiendo", value=bool(p.get(k)), key=f"tg_{k}")
-        if nuevo != bool(p.get(k)):
-            marcar(k, nuevo)
-            st.rerun()
+        if f"tg_{k}" not in st.session_state:
+            st.session_state[f"tg_{k}"] = bool(p.get(k))
+        st.toggle("💗 Esta sección ya la entiendo", key=f"tg_{k}",
+                  on_change=lambda: marcar(k, st.session_state[f"tg_{k}"]))
     with c3:
         if i < len(ids) - 1 and st.button("Siguiente →", key=f"sig_{tema.id}_{sec.id}", width="stretch", type="primary"):
             st.session_state[clave] = ids[i + 1]

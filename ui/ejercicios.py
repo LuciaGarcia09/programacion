@@ -70,9 +70,8 @@ def _corregir_programa(e):
     c1, c2, c3 = st.columns(3)
     corr = c1.button("✔️ Corrígeme", type="primary", key=f"corr_{e.id}", width="stretch")
     ver = c2.button("👀 Probar la solución en la herramienta", key=f"ver_{e.id}", width="stretch")
-    if c3.button("↺ Volver a la plantilla", key=f"pl_{e.id}", width="stretch"):
-        st.session_state[clave] = p.plantilla
-        st.rerun()
+    c3.button("↺ Volver a la plantilla", key=f"pl_{e.id}", width="stretch",
+              on_click=lambda: st.session_state.update({clave: p.plantilla}))
     if ver:
         from ui.herramientas import NAV
         if p.lenguaje == "mips":
@@ -200,15 +199,13 @@ def pagina_ejercicios(asig: str):
     titulos = {e.id: ("✅ " if hecho(e.id) else "") + f"{k}. {e.titulo}" for k, e in enumerate(h.ejercicios, 1)}
     c1, c2, c3 = st.columns([1, 6, 1])
     i = eids.index(st.session_state[ck])
-    with c1:
-        if st.button("←", key=f"prev_{h.id}", disabled=i == 0, width="stretch"):
-            st.session_state[ck] = eids[i - 1]
-            st.rerun()
+
+    def _mover(paso):                       # callback: corre antes de dibujar el selector
+        st.session_state[ck] = eids[eids.index(st.session_state[ck]) + paso]
+
+    c1.button("←", key=f"prev_{h.id}", disabled=i == 0, width="stretch", on_click=_mover, args=(-1,))
     with c2:
         st.selectbox("Ejercicio", eids, key=ck, format_func=titulos.get, label_visibility="collapsed")
-    with c3:
-        if st.button("→", key=f"next_{h.id}", disabled=i == len(eids) - 1, width="stretch"):
-            st.session_state[ck] = eids[i + 1]
-            st.rerun()
+    c3.button("→", key=f"next_{h.id}", disabled=i == len(eids) - 1, width="stretch", on_click=_mover, args=(1,))
     e = next(x for x in h.ejercicios if x.id == st.session_state[ck])
     mostrar_ejercicio(e)
