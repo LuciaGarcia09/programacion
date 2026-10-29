@@ -97,9 +97,16 @@ def _corregir_programa(e):
             except Exception as exc:  # noqa: BLE001
                 st.error(f"No he podido probarlo: {exc}")
                 return
-        if msgs and msgs.strip():
+        if msgs and msgs.strip() and p.lenguaje == "python":
+            with caja("errata", "Qué falla y cómo arreglarlo"):
+                st.markdown(msgs)
+        elif msgs and msgs.strip():
             with st.expander("⚠️ Avisos del compilador", expanded=not any(r.ok for r in res)):
                 st.code(msgs, language="text")
+        errores = sorted({r.detalle for r in res if not r.ok and r.detalle.startswith("error al ejecutar")})
+        if errores and p.lenguaje == "python":
+            with caja("truco", "Por qué se para tu programa"):
+                st.markdown("\n".join(f"- {d.removeprefix('error al ejecutar: ')}" for d in errores))
         filas = []
         for r in res:
             filas.append({"": "✅" if r.ok else "❌", "Prueba": r.descripcion, "Entrada": r.entrada.replace("\n", " ⏎ "),

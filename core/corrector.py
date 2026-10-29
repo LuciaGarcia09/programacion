@@ -305,7 +305,9 @@ def _correr_ejecutable(cmd, prog, pruebas=None) -> list[ResultadoPrueba]:
         fallos = []
         if r.returncode != 0 and prog.lenguaje == "python":
             err = (r.stderr or "").strip().splitlines()
-            fallos.append("error al ejecutar: " + (err[-1] if err else f"código {r.returncode}"))
+            from core.diagnostico import explicar_error_ejecucion
+            fallos.append("error al ejecutar: " + (explicar_error_ejecucion(err[-1], pr.entrada) if err
+                                                   else f"código {r.returncode}"))
         elif r.returncode < 0:
             fallos.append({-11: "violación de segmento (accedes a memoria que no es tuya: ¿un puntero o un índice "
                                  "fuera del array?)", -8: "excepción aritmética (¿divides entre 0?)",
@@ -327,4 +329,9 @@ def corregir(codigo: str, prog):
         return correr_mips(codigo, prog), ""
     if prog.lenguaje == "c":
         return correr_c(codigo, prog)
-    return correr_python(codigo, prog), ""
+    from core.diagnostico import diagnosticar
+    diag, sintaxis = diagnosticar(codigo)
+    if sintaxis:
+        return [ResultadoPrueba(False, pr.descripcion, pr.entrada, pr.salida or "", "(no llega a ejecutarse)",
+                                "error de sintaxis: mira la explicación de arriba 👆") for pr in prog.pruebas], diag
+    return correr_python(codigo, prog), diag
